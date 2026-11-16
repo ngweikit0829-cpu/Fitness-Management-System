@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="{{ url_for('static', filename='icon.avif') }}" type="image/avif">
+  <title>数据分析 · 练迹</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;700;900&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+  <header class="app">
+    <div class="wrap app-nav">
+      <a href="{{ url_for('dashboard') }}" class="brand"><span class="mark"><img
+            src="{{ url_for('static', filename='icon.avif') }}" alt=""></span>练迹</a>
+      <nav class="app-links">
+        <a href="{{ url_for('dashboard') }}">仪表盘</a>
+        <a href="{{ url_for('diet') }}">饮食推荐</a>
+        <a href="{{ url_for('exercises') }}">动作库</a>
+        <a href="{{ url_for('log') }}">每日打卡</a>
+        <a href="{{ url_for('analytics') }}" class="active">数据分析</a>
+        <a href="{{ url_for('report') }}">报告导出</a>
+      </nav>
+      <div class="user-chip"><span class="dot">{{ session['username'][0].upper() }}</span>{{ session['username'] }}<a
+          href="{{ url_for('logout') }}" class="logout-link" style="margin-left:14px;">退出</a></div>
+    </div>
+  </header>
+
+  <main class="app-main">
+    <div class="wrap page-head">
+      <h1>数据可视化面板</h1>
+      <p>体重、BMI 变化趋势与本月打卡频次</p>
+    </div>
+
+    <div class="wrap">
+      <div class="card" style="margin-bottom:24px;">
+        <h2>近 30 天体重变化 (kg)</h2>
+        {% if recent_health %}
+        <svg id="weightChart" viewBox="0 0 520 190" fill="none" style="width:100%; height:200px; margin-top:16px;">
+          <g id="weightGrid" stroke="#DBE1D6" stroke-dasharray="4 6"></g>
+          <g id="weightAxisLabels" fill="#5B6670" font-size="11" text-anchor="end"></g>
+          <polyline id="weightLine" stroke="#FF5C4D" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+          <polyline id="weightArea" fill="rgba(255,92,77,0.08)" stroke="none" />
+          <g id="weightPointLabels"></g>
+        </svg>
+        {% else %}
+        <p class="empty-state">暂无近 30 天体重记录，请先完成每日健康打卡。</p>
+        {% endif %}
+        <div style="display:flex; gap:30px; margin-top:10px; font-size:13px; color:var(--muted);">
+          <span>起始 {{ recent_health[0].weight if recent_health else '--' }} kg</span>
+          <span>当前 {{ recent_health[-1].weight if recent_health else '--' }} kg</span>
+          <span>记录数 {{ recent_health|length }}</span>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card" id="checkin-frequency">
+          <div class="month-heading">
+            <h2>打卡频次 · {{ selected_month_label }}</h2>
+            <div class="month-nav" aria-label="切换月份">
+              <a href="{{ url_for('analytics', month=previous_month) }}#checkin-frequency" aria-label="查看上个月">←</a>
+              {% if can_next_month %}
+              <a href="{{ url_for('analytics', month=next_month) }}#checkin-frequency" aria-label="查看下个月">→</a>
+              {% else %}
+              <span class="is-disabled" aria-label="不能查看未来月份">→</span>
+              {% endif %}
+            </div>
+          </div>
+          <p class="hint" style="margin-bottom:16px;">本月健康打卡 {{ month_checkin_count }} 天 · 训练 {{ month_workout_days }} 天
+          </p>
+          <div class="heat-grid" id="heatGrid"></div>
+        </div>
+
+        <div class="card">
+          <h2>BMI 变化趋势</h2>
+          <p class="hint" style="margin-bottom:16px;">近 30 天共 {{ health_logs|length }} 条健康记录</p>
+          {% if recent_health %}
+          <p class="bmi-current">当前 BMI <strong id="bmiCurrentValue">--</strong> · <span id="bmiCategoryValue">--</span>
+          </p>
+          <div class="bmi-legend"><span class="bmi-legend-swatch"></span>正常范围 18.5–23.9</div>
+          <svg id="bmiChart" viewBox="0 0 300 140" fill="none" style="width:100%; height:150px;">
+            <rect id="bmiNormalBand" x="40" width="260" fill="rgba(16,185,129,.12)" />
+            <g id="bmiAxisLabels" fill="#5B6670" font-size="10" text-anchor="end"></g>
+            <polyline id="bmiLine" stroke="#D6FF3F" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+            <line id="bmiNormalLine" x1="40" x2="300" stroke="#DBE1D6" stroke-dasharray="4 6" />
+            <g id="bmiPointLabels"></g>
+          </svg>
+          {% else %}
+          <p class="empty-state">暂无近 30 天 BMI 数据，请先完成每日健康打卡。</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <div class="checkin-modal" id="checkin-modal" hidden role="dialog" aria-modal="true"
+    aria-labelledby="checkin-modal-title">
+    <div class="checkin-modal-backdrop" data-checkin-close></div>
+    <div class="checkin-modal-content">
+      <button class="checkin-modal-close" type="button" data-checkin-close aria-label="关闭当天打卡详情">×</button>
+      <h2 id="checkin-modal-title">当天打卡详情</h2>
+      <div id="checkin-modal-body"></div>
+    </div>
+  </div>
+
+  <footer class="site-footer">
+    <div class="wrap foot-row">
+      <span>练迹 TRAINFLOW</span>
+      <span>新纪元技职与推广教育学院 · Python Programming 课程项目</span>
+    </div>
+  </footer>
+
+  <script id="analytics-data" type="application/json">
+    {{ {
+      'healthDates': health_dates,
+      'weightValues': weight_values,
+      'bmiValues': bmi_values,
+      'checkinDetails': checkin_details
+    } | tojson }}
+  </script>
+
+  <script>
+    const analyticsData = JSON.parse(document.getElementById('analytics-data').textContent);
+    const heat = document.getElementById('heatGrid');
+    const healthDates = analyticsData.healthDates;
+    const selectedMonth = '{{ selected_month }}';
+    const monthDays = new Date(
+      Number(selectedMonth.slice(0, 4)),
+      Number(selectedMonth.slice(5, 7)),
+      0
+    ).getDate();
+
+    for (let day = 1; day <= monthDays; day += 1) {
+      const s = document.createElement('span');
+      const dateText = `${selectedMonth}-${String(day).padStart(2, '0')}`;
+      const checkedIn = healthDates.includes(dateText);
+      s.title = `${dateText}：${checkedIn ? '已健康打卡' : '未打卡'}`;
+      s.setAttribute('aria-label', s.title);
+
+      if (checkedIn) {
+        s.classList.add('is-checked');
+        s.addEventListener('click', () => openCheckinModal(dateText));
+        s.style.background = '#10B981';
+        s.style.boxShadow = '0 2px 8px rgba(16, 185, 129, 0.4)';
+        s.style.borderRadius = '4px';
+      } else {
+        s.style.background = '#E2E8F0';
+        s.style.borderRadius = '4px';
+      }
+      s.style.transition = 'transform 0.2s ease, box-shadow 0.2s ease';
+      s.onmouseover = () => {
+        s.style.transform = 'scale(1.25)';
+        s.style.zIndex = '2';
+      };
+      s.onmouseout = () => {
+        s.style.transform = 'scale(1)';
+        s.style.zIndex = '1';
+      };
+
+      heat.appendChild(s);
+    }
+
+    const checkinModal = document.querySelector('#checkin-modal');
+    const checkinModalBody = document.querySelector('#checkin-modal-body');
+    const checkinDetails = analyticsData.checkinDetails;
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>'"]/g, (character) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        "'": '&#39;',
+        '"': '&quot;'
+      }[character]));
+    }
+
+    function openCheckinModal(dateText) {
+      const detail = checkinDetails[dateText] || {};
+      const workouts = detail.workouts || [];
+      const workoutRows = workouts.length
+        ? workouts.map((workout) => `<li>${escapeHtml(workout.name)} · ${escapeHtml(workout.muscle)} · ${escapeHtml(workout.sets)} x ${escapeHtml(workout.reps)} · ${escapeHtml(workout.weight)} kg</li>`).join('')
+        : '<li>当天没有训练记录</li>';
+      checkinModalBody.innerHTML = `
+        <p class="checkin-date">${escapeHtml(dateText)}</p>
+        <div class="checkin-stats">
+          <div><strong>${escapeHtml(detail.weight ?? '--')} kg</strong><span>体重</span></div>
+          <div><strong>${escapeHtml(detail.bmi ?? '--')}</strong><span>BMI</span></div>
+          <div><strong>${escapeHtml(detail.water ?? '--')} ml</strong><span>饮水量</span></div>
+        </div>
+        <p class="checkin-notes"><strong>备注：</strong>${escapeHtml(detail.notes || '无')}</p>
+        <h3>训练记录</h3>
+        <ul class="checkin-workouts">${workoutRows}</ul>`;
+      checkinModal.hidden = false;
+    }
+
+    function closeCheckinModal() {
+      checkinModal.hidden = true;
+    }
+
+    document.querySelectorAll('[data-checkin-close]').forEach((button) => {
+      button.addEventListener('click', closeCheckinModal);
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !checkinModal.hidden) closeCheckinModal();
+    });
+
+    function buildPoints(values, width, height, valueToY) {
+      if (values.length < 1) return '';
+      return values.map((value, index) => {
+        const x = values.length === 1 ? width / 2 : index * width / (values.length - 1);
+        const y = valueToY(value);
+        return `${x},${y}`;
+      }).join(' ');
+    }
+
+    const weightValues = analyticsData.weightValues;
+    const weightMin = weightValues.length ? Math.min(...weightValues) : 0;
+    const weightMax = weightValues.length ? Math.max(...weightValues) : 1;
+    const weightAxisMin = weightMin === weightMax ? weightMin - 0.5 : weightMin;
+    const weightAxisMax = weightMin === weightMax ? weightMax + 0.5 : weightMax;
+    const weightRange = weightAxisMax - weightAxisMin;
+    const chartLeft = 42;
+    const chartWidth = 468;
+    const chartTop = 24;
+    const chartBottom = 150;
+    const chartHeight = chartBottom - chartTop;
+    const weightPointData = weightValues.map((value, index) => ({
+      value,
+      x: weightValues.length === 1
+        ? chartLeft + chartWidth / 2
+        : chartLeft + index * chartWidth / (weightValues.length - 1),
+      y: chartBottom - ((value - weightAxisMin) / weightRange) * (chartHeight - 6)
+    }));
+    const weightPoints = weightPointData.map((point) => `${point.x},${point.y}`).join(' ');
+    const weightLine = document.getElementById('weightLine');
+    const weightArea = document.getElementById('weightArea');
+    if (weightLine) weightLine.setAttribute('points', weightPoints);
+    if (weightArea && weightPoints) weightArea.setAttribute('points', `${weightPoints} ${chartLeft + chartWidth},${chartBottom} ${chartLeft},${chartBottom}`);
+
+    const weightGrid = document.getElementById('weightGrid');
+    const weightAxisLabels = document.getElementById('weightAxisLabels');
+    [weightAxisMax, weightAxisMin + weightRange / 2, weightAxisMin].forEach((value) => {
+      const y = chartBottom - ((value - weightAxisMin) / weightRange) * (chartHeight - 6);
+      const gridLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      gridLine.setAttribute('x1', chartLeft);
+      gridLine.setAttribute('x2', chartLeft + chartWidth);
+      gridLine.setAttribute('y1', y);
+      gridLine.setAttribute('y2', y);
+      weightGrid.appendChild(gridLine);
+
+      const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      label.setAttribute('x', chartLeft - 8);
+      label.setAttribute('y', y + 4);
+      label.textContent = `${value.toFixed(1)} kg`;
+      weightAxisLabels.appendChild(label);
+    });
+
+    const weightPointLabels = document.getElementById('weightPointLabels');
+    weightPointData.forEach((point, index) => {
+      const marker = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      marker.setAttribute('cx', point.x);
+      marker.setAttribute('cy', point.y);
+      marker.setAttribute('r', index === weightPointData.length - 1 ? '5' : '3');
+      marker.setAttribute('fill', '#FF5C4D');
+      const tooltip = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+      tooltip.textContent = `${point.value.toFixed(1)} kg`;
+      marker.appendChild(tooltip);
+      weightPointLabels.appendChild(marker);
+    });
+
+    const bmiValues = analyticsData.bmiValues;
+    const bmiDataMin = bmiValues.length ? Math.min(...bmiValues) : 15;
+    const bmiMin = bmiDataMin < 15 ? Math.floor((bmiDataMin - 1) / 5) * 5 : 15;
+    const bmiDataMax = bmiValues.length ? Math.max(...bmiValues) : bmiMin;
+    const bmiMax = Math.max(30, Math.ceil((bmiDataMax + 1) / 5) * 5);
+    const bmiChartLeft = 40;
+    const bmiChartWidth = 260;
+    const bmiY = (value) => 125 - ((value - bmiMin) / (bmiMax - bmiMin)) * 110;
+    const bmiLine = document.getElementById('bmiLine');
+    const bmiPointLabels = document.getElementById('bmiPointLabels');
+    const bmiAxisLabels = document.getElementById('bmiAxisLabels');
+    const bmiNormalBand = document.getElementById('bmiNormalBand');
+    const bmiNormalLine = document.getElementById('bmiNormalLine');
+    const bmiCurrentValue = document.getElementById('bmiCurrentValue');
+    const bmiCategoryValue = document.getElementById('bmiCategoryValue');
+    const currentBmi = bmiValues.length ? bmiValues[bmiValues.length - 1] : null;
+    const bmiCategory = (value) => {
+      if (value < 18.5) return '偏低';
+      if (value <= 23.9) return '正常';
+      if (value < 27.5) return '偏高';
+      return '较高';
+    };
+    if (bmiValues.length && bmiCurrentValue) {
+      bmiCurrentValue.textContent = currentBmi.toFixed(1);
+      if (bmiCategoryValue) bmiCategoryValue.textContent = bmiCategory(currentBmi);
+    }
+    if (bmiLine) {
+      const bmiPoints = bmiValues.map((value, index) => {
+        const x = bmiValues.length === 1
+          ? bmiChartLeft + bmiChartWidth / 2
+          : bmiChartLeft + index * bmiChartWidth / (bmiValues.length - 1);
+        return `${x},${bmiY(value)}`;
+      }).join(' ');
+      bmiLine.setAttribute('points', bmiPoints);
+      if (bmiValues.length > 1) {
+        const bmiTrendColor = bmiValues[bmiValues.length - 1] > bmiValues[0] ? '#FF5C4D' : '#10B981';
+        bmiLine.setAttribute('stroke', bmiValues[bmiValues.length - 1] === bmiValues[0] ? '#D6FF3F' : bmiTrendColor);
+      }
+    }
+    if (bmiPointLabels) {
+      bmiValues.forEach((value, index) => {
+        const point = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        const x = bmiValues.length === 1
+          ? bmiChartLeft + bmiChartWidth / 2
+          : bmiChartLeft + index * bmiChartWidth / (bmiValues.length - 1);
+        point.setAttribute('cx', x);
+        point.setAttribute('cy', bmiY(value));
+        point.setAttribute('r', index === bmiValues.length - 1 ? '4' : '3');
+        point.setAttribute('fill', bmiLine.getAttribute('stroke'));
+        const tooltip = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+        tooltip.textContent = `BMI ${value.toFixed(1)}`;
+        point.appendChild(tooltip);
+        bmiPointLabels.appendChild(point);
+      });
+    }
+    if (bmiAxisLabels) {
+      for (let value = bmiMax; value >= bmiMin; value -= 5) {
+        const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        label.setAttribute('x', '32');
+        label.setAttribute('y', bmiY(value) + 4);
+        label.textContent = value;
+        bmiAxisLabels.appendChild(label);
+      }
+    }
+    if (bmiNormalLine) {
+      const normalY = bmiY(23.9);
+      bmiNormalLine.setAttribute('y1', normalY);
+      bmiNormalLine.setAttribute('y2', normalY);
+      if (bmiNormalBand) {
+        bmiNormalBand.setAttribute('y', normalY);
+        bmiNormalBand.setAttribute('height', bmiY(18.5) - normalY);
+      }
+    }
+  </script>
+
+</body>
+
+</html>

@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="{{ url_for('static', filename='icon.avif') }}" type="image/avif">
+  <title>报告导出 · 练迹</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;700;900&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+  <header class="app">
+    <div class="wrap app-nav">
+      <a href="{{ url_for('dashboard') }}" class="brand"><span class="mark"><img
+            src="{{ url_for('static', filename='icon.avif') }}" alt=""></span>练迹</a>
+      <nav class="app-links">
+        <a href="{{ url_for('dashboard') }}">仪表盘</a>
+        <a href="{{ url_for('diet') }}">饮食推荐</a>
+        <a href="{{ url_for('exercises') }}">动作库</a>
+        <a href="{{ url_for('log') }}">每日打卡</a>
+        <a href="{{ url_for('analytics') }}">数据分析</a>
+        <a href="{{ url_for('report') }}" class="active">报告导出</a>
+      </nav>
+      <div class="user-chip"><span class="dot">{{ session['username'][0].upper() }}</span>{{ session['username'] }}<a
+          href="{{ url_for('logout') }}" class="logout-link" style="margin-left:14px;">退出</a></div>
+    </div>
+  </header>
+
+  <main class="app-main">
+    <div class="wrap page-head">
+      <h1>导出进度报告</h1>
+      <p>选择时间跨度，系统在后台生成 PDF，不影响页面正常使用</p>
+    </div>
+
+    <div class="wrap">
+      <div class="grid-2">
+        <div class="card">
+          <h2>报告设置</h2>
+
+          <div class="field" style="margin-top:18px;">
+            <label>时间跨度</label>
+            <div class="choice-group">
+              <label class="choice"><input type="radio" name="range" value="7" checked>近 7 天</label>
+              <label class="choice"><input type="radio" name="range" value="30">近 30 天</label>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>报告将包含</label>
+            <table class="simple">
+              <tr>
+                <td>个人基本指标汇总</td>
+                <td><span class="badge volt">已包含</span></td>
+              </tr>
+              <tr>
+                <td>近期体重、BMI 与饮水记录</td>
+                <td><span class="badge volt">已包含</span></td>
+              </tr>
+              <tr>
+                <td>训练完成度统计</td>
+                <td><span class="badge volt">已包含</span></td>
+              </tr>
+            </table>
+          </div>
+
+          <a id="exportLink" href="{{ url_for('export_pdf', days=7) }}" class="btn-primary btn-block"
+            style="text-align:center;">生成并下载 PDF</a>
+        </div>
+
+        <div class="card">
+          <h2>历史报告</h2>
+          <form class="history-search" method="get" action="{{ url_for('report') }}">
+            <div class="field">
+              <label for="report-date">按日期搜索</label>
+              <input id="report-date" name="date" type="date" value="{{ report_date }}">
+            </div>
+            <button class="btn-secondary" type="submit">搜索</button>
+            {% if report_date %}
+            <a class="btn-secondary" href="{{ url_for('report') }}">清除</a>
+            {% endif %}
+          </form>
+          <p class="hint" style="margin-bottom:16px;">显示最近生成的 6 个报告。</p>
+          <table class="simple">
+            <tr>
+              <th>生成时间</th>
+              <th>时间跨度</th>
+              <th>操作</th>
+            </tr>
+            {% for report in report_history %}
+            <tr>
+              <td>{{ report.generated_at.strftime('%Y-%m-%d %H:%M') }}</td>
+              <td>近 {{ report.days }} 天</td>
+              <td><a href="{{ url_for('export_pdf', days=report.days) }}">重新生成</a></td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="3">暂无历史报告，请先生成一份 PDF。</td>
+            </tr>
+            {% endfor %}
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap foot-row">
+      <span>练迹 TRAINFLOW</span>
+      <span>新纪元技职与推广教育学院 · Python Programming 课程项目</span>
+    </div>
+  </footer>
+
+</body>
+
+<script>
+  const exportLink = document.getElementById('exportLink');
+  document.querySelectorAll('input[name="range"]').forEach((input) => {
+    input.addEventListener('change', () => {
+      exportLink.href = `{{ url_for('export_pdf') }}?days=${input.value}`;
+    });
+  });
+</script>
+
+</html>

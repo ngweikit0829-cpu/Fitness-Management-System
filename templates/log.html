@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="{{ url_for('static', filename='icon.avif') }}" type="image/avif">
+  <title>每日打卡 · 练迹</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;700;900&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+  <header class="app">
+    <div class="wrap app-nav">
+      <a href="{{ url_for('dashboard') }}" class="brand"><span class="mark"><img
+            src="{{ url_for('static', filename='icon.avif') }}" alt=""></span>练迹</a>
+      <nav class="app-links">
+        <a href="{{ url_for('dashboard') }}">仪表盘</a>
+        <a href="{{ url_for('diet') }}">饮食推荐</a>
+        <a href="{{ url_for('exercises') }}">动作库</a>
+        <a href="{{ url_for('log') }}" class="active">每日打卡</a>
+        <a href="{{ url_for('analytics') }}">数据分析</a>
+        <a href="{{ url_for('report') }}">报告导出</a>
+      </nav>
+      <div class="user-chip"><span class="dot">{{ session['username'][0].upper() }}</span>{{ session['username'] }}<a
+          href="{{ url_for('logout') }}" class="logout-link" style="margin-left:14px;">退出</a></div>
+    </div>
+  </header>
+
+  <main class="app-main">
+    <div class="wrap page-head">
+      <h1>今日打卡</h1>
+      <p>记录训练内容和身体数据，明天的你会感谢现在的记录</p>
+    </div>
+
+    <div class="wrap">
+      <div class="grid-2">
+
+        <form class="card" action="{{ url_for('log') }}" method="POST" onsubmit="triggerConfetti()">
+          <h2>训练记录</h2>
+          <div class="field">
+            <label for="workout-log-date">打卡日期</label>
+            <input id="workout-log-date" type="date" name="log_date" value="{{ selected_date }}" max="{{ today }}"
+              required>
+          </div>
+          <input type="hidden" name="log_type" value="workout">
+
+          <div class="field">
+            <label>训练部位</label>
+            <select name="muscle_group" required>
+              <option value="" selected disabled>请选择训练部位</option>
+              {% for exercise in exercises_options|unique(attribute='muscle_group') %}
+              <option value="{{ exercise.muscle_group }}">{{ exercise.muscle_group }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label>动作名称</label>
+            <input type="text" name="exercise_name" placeholder="例如：杠铃卧推" required>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>组数</label><input type="number" name="sets" min="1" required></div>
+            <div class="field"><label>次数</label><input type="number" name="reps" min="1" required></div>
+          </div>
+          <div class="field">
+            <label>训练重量 (kg)</label>
+            <input type="number" name="weight_used" min="0" step="0.5" value="0" required>
+          </div>
+          <button class="btn-primary btn-block">添加训练记录</button>
+        </form>
+
+        <form class="card" action="{{ url_for('log') }}" method="POST" onsubmit="triggerConfetti()">
+          <h2>健康打卡</h2>
+          <div class="field">
+            <label for="health-log-date">打卡日期</label>
+            <input id="health-log-date" type="date" name="log_date" value="{{ selected_date }}" max="{{ today }}"
+              required>
+          </div>
+          <p class="hint" style="margin-bottom:18px;">体重与饮水量，每天记一次</p>
+          <input type="hidden" name="log_type" value="health">
+
+          <div class="field">
+            <label>今日体重 (kg)</label>
+            <input type="number" name="weight" step="0.1" min="20" max="300"
+              value="{{ latest_health.weight if latest_health else '' }}" required>
+          </div>
+          <div class="field">
+            <label>总饮水量 (ml)</label>
+            <input type="number" name="water_intake" step="50" min="0"
+              value="{{ latest_health.water_intake if latest_health else 0 }}" required>
+          </div>
+          <div class="field">
+            <label>备注</label>
+            <textarea name="notes" rows="3"
+              placeholder="今天的状态、感受或计划调整">{{ latest_health.notes if latest_health else '' }}</textarea>
+          </div>
+          <button class="btn-primary btn-block">保存今日打卡</button>
+
+          <div style="margin-top:22px; display:flex; gap:20px;">
+            <div class="stat-card" style="flex:1;">
+              <div class="num" style="font-size:22px;">{{ streak }}</div>
+              <div class="cap">连续打卡天数</div>
+            </div>
+            <div class="stat-card" style="flex:1;">
+              <div class="num" style="font-size:22px;">{{ '%.1f'|format(weight_change) if weight_change is not none else
+                '--' }}{% if weight_change is not none %}kg{% endif %}</div>
+              <div class="cap">较昨日变化</div>
+            </div>
+          </div>
+        </form>
+
+      </div>
+
+      <div class="card" id="workout-history" style="margin-top:24px;">
+        <h2>训练历史</h2>
+        <form class="history-search" action="{{ url_for('log') }}#workout-history" method="GET">
+          <div class="field">
+            <label for="history-date">日期</label>
+            <input id="history-date" type="date" name="history_date" value="{{ history_date }}">
+          </div>
+          <div class="field">
+            <label for="history-muscle">训练部位</label>
+            <select id="history-muscle" name="history_muscle">
+              <option value="">全部部位</option>
+              {% for muscle in ['胸部', '背部', '腿部', '肩部', '手臂', '核心'] %}
+              <option value="{{ muscle }}" {% if history_muscle==muscle %}selected{% endif %}>{{ muscle }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <button class="btn-secondary" type="submit">搜索</button>
+          {% if history_date or history_muscle %}
+          <a class="btn-secondary" href="{{ url_for('log') }}#workout-history">清除</a>
+          {% endif %}
+        </form>
+
+        <div style="overflow-x:auto;">
+          <table class="simple">
+            <tr>
+              <th>日期</th>
+              <th>部位</th>
+              <th>动作</th>
+              <th>组数x次数</th>
+              <th>重量</th>
+            </tr>
+            {% for workout in workout_history %}
+            <tr class="history-row{% if loop.index > 5 %} history-row-hidden{% endif %}">
+              <td><a href="{{ url_for('log', date=workout.log_date.strftime('%Y-%m-%d')) }}">{{
+                  workout.log_date.strftime('%Y-%m-%d') }}</a></td>
+              <td>{{ workout.muscle_group }}</td>
+              <td>{{ workout.exercise_name }}</td>
+              <td>{{ workout.sets }} x {{ workout.reps }}</td>
+              <td>{{ workout.weight_used }} kg</td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="5">暂无训练历史。</td>
+            </tr>
+            {% endfor %}
+          </table>
+        </div>
+        {% if workout_history|length > 5 %}
+        <button class="btn-secondary history-more" type="button" data-history-more>显示更多</button>
+        {% endif %}
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap foot-row">
+      <span>练迹 TRAINFLOW</span>
+      <span>新纪元技职与推广教育学院 · Python Programming 课程项目</span>
+    </div>
+  </footer>
+
+  <!-- 矢量动画与粒子撒花 CDN 依赖 -->
+  <script src="https://unpkg.com/@dotlottie/player-component@latest/dist/dotlottie-player.mjs" type="module"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+  <script>
+    function triggerConfetti() {
+      confetti({
+        particleCount: 90,
+        ticks: 320,
+        spread: 60,
+        origin: { y: 0.7 },
+        colors: ['#FF5E1E', '#10B981', '#0284C7', '#FFD700']
+      });
+    }
+
+    const historyMoreButton = document.querySelector('[data-history-more]');
+    if (historyMoreButton) {
+      historyMoreButton.addEventListener('click', () => {
+        const hiddenRows = document.querySelectorAll('.history-row-hidden');
+        const isExpanded = historyMoreButton.dataset.expanded === 'true';
+        hiddenRows.forEach((row) => {
+          row.style.display = isExpanded ? 'none' : 'table-row';
+        });
+        historyMoreButton.dataset.expanded = String(!isExpanded);
+        historyMoreButton.textContent = isExpanded ? '显示更多' : '收起';
+      });
+    }
+  </script>
+</body>
+
+</html>

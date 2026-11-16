@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>登录 · 练迹</title>
+  <link rel="icon" href="{{ url_for('static', filename='icon.avif') }}" type="image/avif">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;700;900&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+  <header class="site">
+    <div class="wrap nav">
+      <a href="{{ url_for('index') }}" class="brand">
+        <span class="mark"><img src="{{ url_for('static', filename='icon.avif') }}" alt=""></span>
+        练迹 <small>TRAINFLOW</small>
+      </a>
+      <nav class="nav-links"><a href="{{ url_for('index') }}">首页</a></nav>
+      <a href="{{ url_for('register') }}" class="nav-cta">注册</a>
+    </div>
+  </header>
+
+  <div class="auth-wrap">
+    <!-- 提交给 Flask 后端的 login 路由 -->
+    <form class="auth-card" action="{{ url_for('login') }}" method="POST">
+      <h1>欢迎回来</h1>
+      <p class="sub">登录后继续你的训练记录</p>
+
+      <!-- 接收后端弹出的错误/成功消息 -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+      {% for category, message in messages %}
+      <div class="alert alert-{{ category }}" style="color: var(--coral); margin-bottom: 12px; font-weight: 500;">
+        {{ message }}
+      </div>
+      {% endfor %}
+      {% endif %}
+      {% endwith %}
+
+      <div class="field">
+        <label for="username">用户名</label>
+        <input id="username" name="username" type="text" placeholder="输入用户名" required>
+      </div>
+      <div class="field">
+        <label for="password">密码</label>
+        <input id="password" name="password" type="password" placeholder="输入密码" required>
+        <div class="help">密码经哈希加密存储，不会以明文保存</div>
+      </div>
+
+      <!-- 替换 <a> 为真实的 submit 按钮 -->
+      <button type="submit" class="btn-primary btn-block">登录</button>
+      <div class="auth-switch">还没有账号？<a href="{{ url_for('register') }}">立即注册</a></div>
+    </form>
+  </div>
+
+  <footer class="site-footer">
+    <div class="wrap foot-row">
+      <a href="{{ url_for('index') }}" class="brand"><span class="mark"><img
+            src="{{ url_for('static', filename='icon.avif') }}" alt=""></span>练迹</a>
+      <span>新纪元技职与推广教育学院 · Python Programming 课程项目</span>
+    </div>
+  </footer>
+
+</body>
+
+</html>

@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="{{ url_for('static', filename='icon.avif') }}" type="image/avif">
+  <title>饮食推荐 · 练迹</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;700;900&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+  <header class="app">
+    <div class="wrap app-nav">
+      <a href="{{ url_for('dashboard') }}" class="brand"><span class="mark"><img
+            src="{{ url_for('static', filename='icon.avif') }}" alt=""></span>练迹</a>
+      <nav class="app-links">
+        <a href="{{ url_for('dashboard') }}">仪表盘</a>
+        <a href="{{ url_for('diet') }}" class="active">饮食推荐</a>
+        <a href="{{ url_for('exercises') }}">动作库</a>
+        <a href="{{ url_for('log') }}">每日打卡</a>
+        <a href="{{ url_for('analytics') }}">数据分析</a>
+        <a href="{{ url_for('report') }}">报告导出</a>
+      </nav>
+      <div class="user-chip"><span class="dot">{{ session['username'][0].upper() }}</span>{{ session['username'] }}<a
+          href="{{ url_for('logout') }}" class="logout-link" style="margin-left:14px;">退出</a></div>
+    </div>
+  </header>
+
+  <main class="app-main">
+    <div class="wrap page-head">
+      <h1>今日三餐推荐</h1>
+      <p>按目标热量 {{ macros.target_calories }} kcal，早餐 25% / 午餐 40% / 晚餐 35% 自动匹配</p>
+    </div>
+
+    <div class="wrap">
+      <div class="meal-tabs" role="tablist" aria-label="选择餐次">
+        <div class="meal-tab-group">
+          <button class="meal-tab{% if active_meal == 'breakfast' %} is-active{% endif %}" type="button" role="tab"
+            aria-selected="{{ 'true' if active_meal == 'breakfast' else 'false' }}" aria-controls="breakfast-panel"
+            data-meal-target="breakfast-panel">早餐 <span>25%</span></button>
+          <button class="meal-tab{% if active_meal == 'lunch' %} is-active{% endif %}" type="button" role="tab"
+            aria-selected="{{ 'true' if active_meal == 'lunch' else 'false' }}" aria-controls="lunch-panel"
+            data-meal-target="lunch-panel">午餐 <span>40%</span></button>
+          <button class="meal-tab{% if active_meal == 'dinner' %} is-active{% endif %}" type="button" role="tab"
+            aria-selected="{{ 'true' if active_meal == 'dinner' else 'false' }}" aria-controls="dinner-panel"
+            data-meal-target="dinner-panel">晚餐 <span>35%</span></button>
+        </div>
+        <a id="diet-refresh" class="btn-secondary diet-refresh"
+          href="{{ url_for('diet', refresh=next_refresh, meal=active_meal) }}">换一份</a>
+      </div>
+
+      <div class="meal-grid">
+        <section class="card meal-card{% if active_meal == 'breakfast' %} is-active{% endif %}" id="breakfast-panel"
+          role="tabpanel" {% if active_meal !='breakfast' %} hidden{% endif %}>
+          <h2 style="margin-top:14px;">早餐食材</h2>
+          <p class="meal-total">预计热量 {{ meal_totals.breakfast.calories }} kcal · 蛋白质 {{ meal_totals.breakfast.protein }}
+            g
+            · 碳水 {{ meal_totals.breakfast.carbs }} g · 脂肪 {{ meal_totals.breakfast.fat }} g</p>
+          {% for food in meal_recommendations.breakfast %}
+          <article class="food-item">
+            {% if food.image_filename %}
+            <img class="food-image" src="{{ url_for('static', filename='Food/' + food.image_filename) }}"
+              alt="{{ food.name }}图片">
+            {% endif %}
+            <div class="food-info">
+              <p class="hint">{{ food.name }}（{{ food.serving_grams }}g）</p>
+              <table class="simple">
+                <tr>
+                  <td>热量</td>
+                  <td>{{ food.serving_calories }} kcal</td>
+                </tr>
+                <tr>
+                  <td>蛋白质</td>
+                  <td>{{ food.serving_protein }} g</td>
+                </tr>
+                <tr>
+                  <td>碳水</td>
+                  <td>{{ food.serving_carbs }} g</td>
+                </tr>
+                <tr>
+                  <td>脂肪</td>
+                  <td>{{ food.serving_fat }} g</td>
+                </tr>
+              </table>
+            </div>
+          </article>
+          {% else %}<p class="hint">暂无早餐食物数据。</p>{% endfor %}
+        </section>
+
+        <section class="card meal-card{% if active_meal == 'lunch' %} is-active{% endif %}" id="lunch-panel"
+          role="tabpanel" {% if active_meal !='lunch' %} hidden{% endif %}>
+          <h2 style="margin-top:14px;">午餐食材</h2>
+          <p class="meal-total">预计热量 {{ meal_totals.lunch.calories }} kcal · 蛋白质 {{ meal_totals.lunch.protein }} g · 碳水
+            {{
+            meal_totals.lunch.carbs }} g · 脂肪 {{ meal_totals.lunch.fat }} g</p>
+          {% for food in meal_recommendations.lunch %}
+          <article class="food-item">
+            {% if food.image_filename %}
+            <img class="food-image" src="{{ url_for('static', filename='Food/' + food.image_filename) }}"
+              alt="{{ food.name }}图片">
+            {% endif %}
+            <div class="food-info">
+              <p class="hint">{{ food.name }}（{{ food.serving_grams }}g）</p>
+              <table class="simple">
+                <tr>
+                  <td>热量</td>
+                  <td>{{ food.serving_calories }} kcal</td>
+                </tr>
+                <tr>
+                  <td>蛋白质</td>
+                  <td>{{ food.serving_protein }} g</td>
+                </tr>
+                <tr>
+                  <td>碳水</td>
+                  <td>{{ food.serving_carbs }} g</td>
+                </tr>
+                <tr>
+                  <td>脂肪</td>
+                  <td>{{ food.serving_fat }} g</td>
+                </tr>
+              </table>
+            </div>
+          </article>
+          {% else %}<p class="hint">暂无午餐食物数据。</p>{% endfor %}
+        </section>
+
+        <section class="card meal-card{% if active_meal == 'dinner' %} is-active{% endif %}" id="dinner-panel"
+          role="tabpanel" {% if active_meal !='dinner' %} hidden{% endif %}>
+          <h2 style="margin-top:14px;">晚餐食材</h2>
+          <p class="meal-total">预计热量 {{ meal_totals.dinner.calories }} kcal · 蛋白质 {{ meal_totals.dinner.protein }} g ·
+            碳水
+            {{ meal_totals.dinner.carbs }} g · 脂肪 {{ meal_totals.dinner.fat }} g</p>
+          {% for food in meal_recommendations.dinner %}
+          <article class="food-item">
+            {% if food.image_filename %}
+            <img class="food-image" src="{{ url_for('static', filename='Food/' + food.image_filename) }}"
+              alt="{{ food.name }}图片">
+            {% endif %}
+            <div class="food-info">
+              <p class="hint">{{ food.name }}（{{ food.serving_grams }}g）</p>
+              <table class="simple">
+                <tr>
+                  <td>热量</td>
+                  <td>{{ food.serving_calories }} kcal</td>
+                </tr>
+                <tr>
+                  <td>蛋白质</td>
+                  <td>{{ food.serving_protein }} g</td>
+                </tr>
+                <tr>
+                  <td>碳水</td>
+                  <td>{{ food.serving_carbs }} g</td>
+                </tr>
+                <tr>
+                  <td>脂肪</td>
+                  <td>{{ food.serving_fat }} g</td>
+                </tr>
+              </table>
+            </div>
+          </article>
+          {% else %}<p class="hint">暂无晚餐食物数据。</p>{% endfor %}
+        </section>
+      </div>
+
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap foot-row">
+      <span>练迹 TRAINFLOW</span>
+      <span>新纪元技职与推广教育学院 · Python Programming 课程项目</span>
+    </div>
+  </footer>
+
+  <script>
+    const mealTabs = document.querySelectorAll('.meal-tab');
+    const mealPanels = document.querySelectorAll('.meal-card');
+    const refreshLink = document.querySelector('#diet-refresh');
+
+    mealTabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        const targetId = tab.dataset.mealTarget;
+        const activeMeal = targetId.replace('-panel', '');
+        const refreshUrl = new URL(refreshLink.href, window.location.href);
+        refreshUrl.searchParams.set('meal', activeMeal);
+        refreshLink.href = refreshUrl.toString();
+
+        mealTabs.forEach((item) => {
+          const isActive = item === tab;
+          item.classList.toggle('is-active', isActive);
+          item.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        });
+
+        mealPanels.forEach((panel) => {
+          const isActive = panel.id === targetId;
+          panel.classList.toggle('is-active', isActive);
+          panel.hidden = !isActive;
+        });
+      });
+    });
+  </script>
+
+</body>
+
+</html>

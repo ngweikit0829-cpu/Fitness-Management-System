@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="{{ url_for('static', filename='icon.avif') }}" type="image/avif">
+  <title>仪表盘 · 练迹</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;700;900&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+  <header class="app">
+    <div class="wrap app-nav">
+      <a href="{{ url_for('dashboard') }}" class="brand"><span class="mark"><img
+            src="{{ url_for('static', filename='icon.avif') }}" alt=""></span>练迹</a>
+      <nav class="app-links">
+        <a href="{{ url_for('dashboard') }}" class="active">仪表盘</a>
+        <a href="{{ url_for('diet') }}">饮食推荐</a>
+        <a href="{{ url_for('exercises') }}">动作库</a>
+        <a href="{{ url_for('log') }}">每日打卡</a>
+        <a href="/analytics">数据分析</a>
+        <a href="{{ url_for('report') }}">报告导出</a>
+      </nav>
+      <div class="user-chip">
+        <span class="dot">{{ session['username'][0].upper() }}</span>{{ session['username'] }}
+        <a href="{{ url_for('logout') }}" class="logout-link" style="margin-left:14px;">退出</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="app-main">
+    <div class="wrap page-head">
+      <div>
+        <h1>你的身体指标</h1>
+        <p>基于最新一次档案计算，目标：{{ user.fitness_goal }}</p>
+      </div>
+    </div>
+
+    <div class="wrap">
+      <div class="grid-3" style="margin-bottom:24px;">
+        <div class="stat-card accent">
+          <div class="metric-gauge" data-gauge-value="{{ bmi }}" data-gauge-min="10" data-gauge-max="40"
+            aria-label="BMI 指标仪表">
+            <div class="gauge-dial">
+              <div class="gauge-needle"></div>
+              <div class="gauge-center"></div>
+            </div>
+            <span class="gauge-label gauge-label-low">10</span>
+            <span class="gauge-label gauge-label-high">40</span>
+          </div>
+          <div class="num" id="dash-bmi" data-target="{{ bmi }}">0</div>
+          <div class="cap">BMI · {{ bmi_category }}</div>
+        </div>
+        <div class="stat-card">
+          <div class="metric-gauge" data-gauge-value="{{ bmr }}" data-gauge-min="800" data-gauge-max="3000"
+            aria-label="BMR 基础代谢率仪表">
+            <div class="gauge-dial">
+              <div class="gauge-needle"></div>
+              <div class="gauge-center"></div>
+            </div>
+            <span class="gauge-label gauge-label-low">800</span>
+            <span class="gauge-label gauge-label-high">3000</span>
+          </div>
+          <div class="num" id="dash-bmr" data-target="{{ bmr }}">0</div>
+          <div class="cap">BMR 基础代谢率 (kcal)</div>
+        </div>
+        <div class="stat-card">
+          <div class="metric-gauge" data-gauge-value="{{ tdee }}" data-gauge-min="1200" data-gauge-max="4500"
+            aria-label="TDEE 每日总消耗仪表">
+            <div class="gauge-dial">
+              <div class="gauge-needle"></div>
+              <div class="gauge-center"></div>
+            </div>
+            <span class="gauge-label gauge-label-low">1200</span>
+            <span class="gauge-label gauge-label-high">4500</span>
+          </div>
+          <div class="num" id="dash-tdee" data-target="{{ tdee }}">0</div>
+          <div class="cap">TDEE 基准每日总消耗 (kcal)</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="nutrition-heading">
+            <div>
+              <h2>每日目标热量</h2>
+              <p class="hint">{{ macros.goal_label }}：建议摄入 {{ macros.target_calories }} kcal（相对 TDEE {{
+                '%+d'|format(macros.calorie_adjustment) }} kcal）</p>
+              <div style="font-family:var(--font-display); font-size:44px; font-weight:700; margin:18px 0 6px;">
+                {{ macros.target_calories }} <span
+                  style="font-size:18px; color:var(--muted); font-weight:600;">kcal</span>
+              </div>
+            </div>
+            <img src="{{ url_for('static', filename='calories.png') }}" alt="每日目标热量图">
+          </div>
+          <table class="simple" style="margin-top:10px;">
+            <tr>
+              <td>身高</td>
+              <td>{{ user.height }} cm</td>
+            </tr>
+            <tr>
+              <td>体重</td>
+              <td>{{ current_weight }} kg</td>
+            </tr>
+            <tr>
+              <td>活动系数</td>
+              <td>{{ user.activity_level }}</td>
+            </tr>
+          </table>
+        </div>
+
+        <div class="card">
+          <div class="nutrition-heading">
+            <div>
+              <h2>三大营养素配比</h2>
+              <p class="hint">按目标热量换算的每日摄入克数</p>
+            </div>
+            <img src="{{ url_for('static', filename='dashboard-nutrition.jpg') }}" alt="均衡营养餐盘图">
+          </div>
+          <div class="macro-bar" style="margin-top:18px;">
+            <div style="width:30%; background:var(--volt);"></div>
+            <div style="width:45%; background:var(--coral);"></div>
+            <div style="width:25%; background:var(--ink-2);"></div>
+          </div>
+          <div class="macro-legend">
+            <div><span class="swatch" style="background:var(--volt);"></span>蛋白质 {{ macros.protein_g }} g · 30%</div>
+            <div><span class="swatch" style="background:var(--coral);"></span>碳水 {{ macros.carbs_g }} g · 50%</div>
+            <div><span class="swatch" style="background:var(--ink-2);"></span>脂肪 {{ macros.fat_g }} g · 20%</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:28px;">
+        <a href="/profile" class="btn-secondary">重新填写档案</a>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap foot-row">
+      <span>练迹 TRAINFLOW</span>
+      <span>新纪元技职与推广教育学院 · Python Programming 课程项目</span>
+    </div>
+  </footer>
+
+  <script>
+    function countUp(id, duration = 1200, isFloat = false) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const target = parseFloat(el.getAttribute('data-target')) || 0;
+      const t0 = performance.now();
+
+      function step(now) {
+        const p = Math.min((now - t0) / duration, 1);
+        const eased = 1 - Math.pow(1 - p, 3);
+        const val = target * eased;
+        el.textContent = isFloat ? val.toFixed(1) : Math.round(val).toLocaleString();
+        if (p < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
+
+    function setGaugePositions() {
+      const gauges = document.querySelectorAll('.metric-gauge');
+      gauges.forEach((gauge) => {
+        const needle = gauge.querySelector('.gauge-needle');
+        const value = parseFloat(gauge.dataset.gaugeValue) || 0;
+        const min = parseFloat(gauge.dataset.gaugeMin) || 0;
+        const max = parseFloat(gauge.dataset.gaugeMax) || 1;
+        const progress = Math.max(0, Math.min(1, (value - min) / (max - min)));
+        const targetAngle = -135 + (progress * 270);
+        const startAngle = -135;
+        const startTime = performance.now();
+
+        needle.style.transform = `translateX(-50%) rotate(${startAngle}deg)`;
+
+        function moveNeedle(now) {
+          const animationProgress = Math.min((now - startTime) / 1800, 1);
+          const eased = 1 - Math.pow(1 - animationProgress, 3);
+          const angle = startAngle + ((targetAngle - startAngle) * eased);
+          needle.style.transform = `translateX(-50%) rotate(${angle}deg)`;
+          if (animationProgress < 1) requestAnimationFrame(moveNeedle);
+        }
+
+        requestAnimationFrame(moveNeedle);
+      });
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      setGaugePositions();
+      countUp('dash-bmi', 1000, true);
+      countUp('dash-bmr', 1200, false);
+      countUp('dash-tdee', 1400, false);
+    });
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="{{ url_for('static', filename='icon.avif') }}" type="image/avif">
+  <title>动作库 · 练迹</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;700;900&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+  <header class="app">
+    <div class="wrap app-nav">
+      <a href="{{ url_for('dashboard') }}" class="brand"><span class="mark"><img
+            src="{{ url_for('static', filename='icon.avif') }}" alt=""></span>练迹</a>
+      <nav class="app-links">
+        <a href="{{ url_for('dashboard') }}">仪表盘</a>
+        <a href="{{ url_for('diet') }}">饮食推荐</a>
+        <a href="{{ url_for('exercises') }}" class="active">动作库</a>
+        <a href="{{ url_for('log') }}">每日打卡</a>
+        <a href="/analytics">数据分析</a>
+        <a href="{{ url_for('report') }}">报告导出</a>
+      </nav>
+      <div class="user-chip">
+        <span class="dot">{{ session['username'][0].upper() }}</span>{{ session['username'] }}
+        <a href="{{ url_for('logout') }}" class="logout-link" style="margin-left:14px;">退出</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="app-main">
+    <div class="wrap page-head">
+      <h1>分部位动作库</h1>
+      <p>按肌群筛选，每个动作附推荐组数次数与要领说明</p>
+    </div>
+
+    <div class="wrap">
+      <!-- 动态分类标签链接 -->
+      <div class="tab-row">
+        <a href="{{ url_for('exercises', muscle='all') }}"
+          class="tab {% if selected_muscle == 'all' %}is-active{% endif %}">全部</a>
+        <a href="{{ url_for('exercises', muscle='胸部') }}"
+          class="tab {% if selected_muscle == '胸部' %}is-active{% endif %}">胸部</a>
+        <a href="{{ url_for('exercises', muscle='背部') }}"
+          class="tab {% if selected_muscle == '背部' %}is-active{% endif %}">背部</a>
+        <a href="{{ url_for('exercises', muscle='腿部') }}"
+          class="tab {% if selected_muscle == '腿部' %}is-active{% endif %}">腿部</a>
+        <a href="{{ url_for('exercises', muscle='肩部') }}"
+          class="tab {% if selected_muscle == '肩部' %}is-active{% endif %}">肩部</a>
+        <a href="{{ url_for('exercises', muscle='手臂') }}"
+          class="tab {% if selected_muscle == '手臂' %}is-active{% endif %}">手臂</a>
+        <a href="{{ url_for('exercises', muscle='核心') }}"
+          class="tab {% if selected_muscle == '核心' %}is-active{% endif %}">核心</a>
+      </div>
+
+      <div class="card">
+        <!-- 从数据库循环输出动作数据 -->
+        {% for ex in exercises %}
+        <div class="exercise-item">
+          {% set gif_filename = exercise_gif_filenames.get(ex.name, '杠铃卧推.gif') %}
+          <a class="ex-icon" href="{{ url_for('static', filename='Exercise/' + gif_filename) }}" title="点击查看动作 GIF">
+            <img src="{{ url_for('static', filename='Exercise/' + gif_filename) }}" alt="{{ ex.name }}动作演示">
+          </a>
+          <div>
+            <h4>{{ ex.name }}</h4>
+            <div class="meta">{{ ex.muscle_group }} · {{ ex.default_sets_reps }} · {{ ex.description }}</div>
+          </div>
+        </div>
+        {% else %}
+        <p style="padding: 16px; color: var(--muted);">暂无该部位的动作数据。</p>
+        {% endfor %}
+      </div>
+    </div>
+  </main>
+
+  <div class="gif-modal" id="gif-modal" hidden role="dialog" aria-modal="true" aria-labelledby="gif-modal-title">
+    <div class="gif-modal-backdrop" data-gif-close></div>
+    <div class="gif-modal-content">
+      <button class="gif-modal-close" type="button" data-gif-close aria-label="关闭 GIF 预览">×</button>
+      <h2 id="gif-modal-title">动作演示</h2>
+      <img id="gif-modal-image" src="{{ url_for('static', filename='Exercise/杠铃卧推.gif') }}" alt="动作演示">
+    </div>
+  </div>
+
+  <footer class="site-footer">
+    <div class="wrap foot-row">
+      <span>练迹 TRAINFLOW</span>
+      <span>新纪元技职与推广教育学院 · Python Programming 课程项目</span>
+    </div>
+  </footer>
+
+</body>
+
+<script>
+  const gifModal = document.querySelector('#gif-modal');
+  const gifTriggers = document.querySelectorAll('.ex-icon');
+  const gifCloseButtons = document.querySelectorAll('[data-gif-close]');
+
+  const closeGifModal = () => {
+    gifModal.hidden = true;
+    document.body.classList.remove('modal-open');
+  };
+
+  gifTriggers.forEach((trigger) => {
+    trigger.addEventListener('click', (event) => {
+      event.preventDefault();
+      const modalImage = document.querySelector('#gif-modal-image');
+      modalImage.src = trigger.href;
+      modalImage.alt = trigger.querySelector('img').alt;
+      gifModal.hidden = false;
+      document.body.classList.add('modal-open');
+    });
+  });
+
+  gifCloseButtons.forEach((button) => {
+    button.addEventListener('click', closeGifModal);
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !gifModal.hidden) {
+      closeGifModal();
+    }
+  });
+</script>
+
+</html>
